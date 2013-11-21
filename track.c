@@ -457,6 +457,8 @@ static unsigned short int foscam_command(struct context *cnt, int command,
     CURL *curl;
     CURLcode res;
   
+    motion_log(LOG_INFO, 0, "foscam_command(%d) succeed", command);
+  
     memset(buffer, 0, sizeof(buffer));
   
     curl = curl_easy_init();
@@ -490,11 +492,15 @@ static unsigned short int foscam_command(struct context *cnt, int command,
 
 static void foscam_movehome(struct context *cnt)
 {
+    motion_log(LOG_INFO, 0, "foscam_movehome() succeed");
+    
     foscam_command(cnt, FOSCAM_MOVEHOME, 0);
 }
 
 static unsigned short int foscam_center(struct context *cnt, int x_offset, int y_offset)
 {
+    motion_log(LOG_INFO, 0, "foscam_center() succeed");
+    
     foscam_movehome(cnt);
     return 0;
 }
@@ -538,6 +544,8 @@ static unsigned short int foscam_move(struct context *cnt, struct coord *cent, s
            ny = 45;
     }
 
+    motion_log(LOG_INFO, 0, "foscam_move(%d,%d) succeed", nx, ny);
+
     maxx=ny;
     if (nx>ny)
        maxx=nx;
@@ -549,7 +557,6 @@ static unsigned short int foscam_move(struct context *cnt, struct coord *cent, s
        if (y < ny)
           foscam_command(cnt, directionv, 0);
     }
-    
     
     /* Number of frames to skip while moving */
     if (ny >= nx)
