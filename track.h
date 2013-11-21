@@ -53,6 +53,7 @@ unsigned short int track_move(struct context *, int, struct coord *, struct imag
 #define TRACK_TYPE_PWC          3
 #define TRACK_TYPE_GENERIC      4
 #define TRACK_TYPE_UVC          5
+#define TRACK_TYPE_FOSCAM       6
 
 /*
     Some defines for the Serial stepper motor:
@@ -105,6 +106,19 @@ unsigned short int track_move(struct context *, int, struct coord *, struct imag
 #define IOMOJO_DIRECTION_LEFT   0x02
 #define IOMOJO_DIRECTION_DOWN   0x04
 #define IOMOJO_DIRECTION_UP     0x08
+
+
+/*
+    Some defines for the Foscam cam:
+ */
+
+#define FOSCAM_MOVEHOME         25
+
+#define FOSCAM_DIRECTION_RIGHT  6
+#define FOSCAM_DIRECTION_LEFT   4
+#define FOSCAM_DIRECTION_DOWN   2
+#define FOSCAM_DIRECTION_UP     0
+
 
 #ifndef WITHOUT_V4L
 

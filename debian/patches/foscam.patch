@@ -1,0 +1,377 @@
+--- motion-3.2.12.orig/configure.in
++++ motion-3.2.12/configure.in
+@@ -741,6 +741,144 @@ else
+ # end PostgreSQL detection
+ fi
+ 
++#
++# Check cURL
++#
++CURL="yes"
++CURL_SUPPORT="no"
++CURL_HEADERS="yes"
++CURL_LIBS="yes"
++
++AC_DEFUN(CURL_INC_CHK,[if test -r $i$1/curl.h; then CURL_DIR=$i; CURL_INCDIR=$i$1])
++
++AC_ARG_WITH(curl,
++[  --without-curl         Disable cURL support in motion.
++                          ],
++CURL="$withval"
++# if not given argument, assume standard
++)
++
++AC_ARG_WITH(curl-lib,
++[  --with-curl-lib[=DIR]        Normally, configure will scan all possible default
++                          installation paths for cURL libs. When it fails, use
++                          this command to tell configure where cURL libs
++                          installation root directory is.
++                          ],
++CURL_LIBS="$withval"
++# if not given argument, assume standard
++)
++
++AC_ARG_WITH(curl-include,
++[  --with-curl-include[=DIR]    Normally, configure will scan all possible default
++                          installation paths for curl include. When it fails, use
++                          this command to tell configure where curl include
++                          installation root directory is.
++                          ],
++CURL_HEADERS="$withval"
++# if not given argument, assume standard
++)
++
++AC_MSG_CHECKING(for cURL)
++
++if test "${CURL}" = "no"; then
++	AC_MSG_RESULT(skipped)
++else
++	AC_MSG_RESULT(testing)
++
++	# ******* Search curl headers *******
++	if test "${CURL_HEADERS}" = "yes"; then
++
++		AC_MSG_CHECKING(autodect curl headers)
++		# Autodetect
++		for i in /usr /usr/local /usr/local/curl; do
++			CURL_INC_CHK(/include)
++			el[]CURL_INC_CHK(/include/curl)
++			fi
++		done
++		
++	elif test "${CURL_HEADERS}" = "no"; then
++		AC_MSG_CHECKING(for curl headers)	
++		AC_MSG_RESULT(skipped)
++	else
++		AC_MSG_CHECKING(for curl headers in $CURL_HEADERS)
++		# Manual detection for <withval>
++        	if test -f $CURL_HEADERS/curl.h; then
++                	CURL_INCDIR=$CURL_HEADERS
++	        fi
++	fi
++
++	if test -z "$CURL_INCDIR" ; then
++		CURL_HEADERS="no"
++		AC_MSG_RESULT(not found)
++		echo "Invalid cURL directory - unable to find curl.h."
++	else
++		AC_MSG_RESULT(yes [$CURL_INCDIR])
++		CURL_HEADERS="yes"
++	fi
++
++
++	if test "${CURL_HEADERS}" = "yes"; then
++
++		# ******* Search curl libs *********
++		if test "${CURL_LIBS}" = "yes"; then
++			AC_MSG_CHECKING(autodect curl libs)
++			# Autodetect
++			CURL_INCLUDE="-I$CURL_INCDIR"
++			CURL_LIBDIR=$CURL_DIR/lib
++
++			if test -f /usr/lib64/libcurl.so ; then
++				CURL_LIBDIR=/usr/lib64
++			elif test -f $CURL_DIR/lib/curl/libcurl.so ; then
++				CURL_LIBDIR=$CURL_DIR/lib/curl 
++			elif test -f $CURL_DIR/lib/curl/libcurl.so ; then
++				CURL_LIBDIR=$CURL_DIR/lib/curl
++			elif test -f $CURL_DIR/lib/libcurl.so ; then	
++				CURL_LIBDIR=$CURL_DIR/lib
++			elif test -f /usr/lib/x86_64-linux-gnu/libcurl.so ; then	
++				CURL_LIBDIR=/usr/lib/x86_64-linux-gnu
++			else
++				CURL_LIBDIR=""
++			fi
++
++			AC_MSG_RESULT($CURL_LIBDIR)
++
++		elif test "${CURL_LIBS}" = "no"; then
++	        	AC_MSG_CHECKING(for curl libs)
++		        AC_MSG_RESULT(skipped)
++		else
++			AC_MSG_CHECKING(for curl libs in $CURL_LIBS)
++			# Manual detection for <withval>
++			if test -f $CURL_LIBS/libcurl.a -o -f $CURL_LIBS/libcurl.so; then
++				CURL_LIBDIR=$CURL_LIBS
++			fi
++		fi
++
++
++		if test -z "$CURL_LIBDIR" ; then
++			AC_MSG_RESULT(not found)
++			echo "Invalid cURL directory [$CURL_LIBDIR] - unable to find libcurl.a or libcurl.so."
++		else
++			#LDFLAGS="$TEMP_LDFLAGS -L$CURL_LIBDIR"
++			saved_CFLAGS=$CFLAGS
++			saved_LIBS=$LIBS
++			CFLAGS="-I$CURL_INCDIR"
++			LIBS="-L$CURL_LIBDIR"
++			AC_CHECK_LIB(curl, curl_version, [
++						CURL_SUPPORT="yes"
++						TEMP_LIBS="$TEMP_LIBS -L$CURL_LIBDIR -lcurl"
++						TEMP_CFLAGS="$TEMP_CFLAGS -I$CURL_INCDIR"
++						AC_DEFINE([HAVE_CURL],1,[Define to 1 if you have cURL support])
++					], 
++			AC_MSG_ERROR(cURL support can't build without cURL libraries))
++			LDFLAGS=""	
++			CFLAGS=$saved_CFLAGS
++			LIBS=$saved_LIBS
++		fi
++		
++	fi # end curlinclude , curl-libs
++
++# end cURL detection
++fi
+ 
+ #Checks for header files.
+ AC_HEADER_STDC
+@@ -1188,6 +1326,13 @@ if test "${PGSQL_SUPPORT}" = "yes"; then
+ else
+ 	echo "PostgreSQL Support:  No"
+ fi
++
++if test "${CURL_SUPPORT}" = "yes"; then
++	echo "cURL Support:        Yes"
++else
++	echo "cURL Support:        No"
++fi
++
+ echo 
+ 
+ echo "CFLAGS: $CFLAGS"
+--- motion-3.2.12.orig/motion-dist.conf.in
++++ motion-3.2.12/motion-dist.conf.in
+@@ -440,7 +440,7 @@ control_html_output on
+ # Tracking (Pan/Tilt)
+ ############################################################
+ 
+-# Type of tracker (0=none (default), 1=stepper, 2=iomojo, 3=pwc, 4=generic, 5=uvcvideo)
++# Type of tracker (0=none (default), 1=stepper, 2=iomojo, 3=pwc, 4=generic, 5=uvcvideo, 6=foscam)
+ # The generic type enables the definition of motion center and motion size to
+ # be used with the conversion specifiers for options like on_motion_detected
+ track_type 0
+--- motion-3.2.12.orig/track.c
++++ motion-3.2.12/track.c
+@@ -10,6 +10,8 @@
+ #include <termios.h>
+ #include "motion.h"
+ 
++#include <curl/curl.h>
++
+ #ifndef WITHOUT_V4L
+ #include "pwc-ioctl.h"
+ #endif
+@@ -37,6 +39,8 @@ static unsigned short int stepper_center
+ static unsigned short int stepper_move(struct context *, struct coord *, struct images *);
+ static unsigned short int iomojo_center(struct context *, int xoff, int yoff);
+ static unsigned short int iomojo_move(struct context *, int dev, struct coord *, struct images *);
++static unsigned short int foscam_center(struct context *, int xoff, int yoff);
++static unsigned short int foscam_move(struct context *, struct coord *, struct images *);
+ #ifndef WITHOUT_V4L
+ static unsigned short int lqos_center(struct context *, int dev, int xoff, int yoff);
+ static unsigned short int lqos_move(struct context *, int dev, struct coord *, struct images *, 
+@@ -77,6 +81,8 @@ unsigned short int track_center(struct c
+         return iomojo_center(cnt, xoff, yoff);
+     else if (cnt->track.type == TRACK_TYPE_GENERIC)
+         return 10; // FIX ME. I chose to return something reasonable.
++    else if (cnt->track.type == TRACK_TYPE_FOSCAM)
++        return foscam_center(cnt, xoff, yoff);
+ 
+     motion_log(LOG_ERR, 1, "track_center: internal error, %hu is not a known track-type", 
+                cnt->track.type);
+@@ -105,6 +111,8 @@ unsigned short int track_move(struct con
+         return iomojo_move(cnt, dev, cent, imgs);
+     else if (cnt->track.type == TRACK_TYPE_GENERIC)
+         return cnt->track.move_wait; // FIX ME. I chose to return something reasonable.
++    else if (cnt->track.type == TRACK_TYPE_FOSCAM)
++        return foscam_move(cnt, cent, imgs);
+ 
+     motion_log(LOG_ERR, 1, "track_move: internal error, %hu is not a known track-type", 
+                cnt->track.type);
+@@ -437,6 +445,125 @@ static unsigned short int iomojo_move(st
+ 
+ /******************************************************************************
+ 
++    FOSCAM
++
++******************************************************************************/
++
++static unsigned short int foscam_command(struct context *cnt, int command,
++                           unsigned short int ret)
++{
++    char buffer[1024];
++    const char *cptr;
++    CURL *curl;
++    CURLcode res;
++  
++    memset(buffer, 0, sizeof(buffer));
++  
++    curl = curl_easy_init();
++    if (curl) {
++       sprintf(buffer, "http://%s/decoder_control.cgi?command=%d&onestep=1", cnt->netcam->connect_host, command);
++       if (cnt->conf.netcam_userpass != NULL) {
++          if ((cptr = strchr(cnt->conf.netcam_userpass, ':')) != NULL) {
++             sprintf(buffer, "http://%s/decoder_control.cgi?command=%d&onestep=1&user=%.*s&pwd=%s", cnt->netcam->connect_host, command, cptr - cnt->conf.netcam_userpass, cnt->conf.netcam_userpass, cptr+1);    
++          } 
++       }
++              
++       curl_easy_setopt(curl, CURLOPT_URL, buffer);
++             
++       /* example.com is redirected, so we tell libcurl to follow redirection */
++       //curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
++             
++       /* Perform the request, res will get the return code */
++       res = curl_easy_perform(curl);
++             
++       /* Check for errors */
++       if (res != CURLE_OK)
++          motion_log(LOG_ERR, 0, "curl_easy_perform() failed");
++             
++       curl_easy_strerror(res);
++             
++       /* always cleanup */
++       curl_easy_cleanup(curl);
++    }
++    return 0;
++}
++
++static void foscam_movehome(struct context *cnt)
++{
++    foscam_command(cnt, FOSCAM_MOVEHOME, 0);
++}
++
++static unsigned short int foscam_center(struct context *cnt, int x_offset, int y_offset)
++{
++    foscam_movehome(cnt);
++    return 0;
++}
++
++static unsigned short int foscam_move(struct context *cnt, struct coord *cent, struct images *imgs)
++{
++    int directionh, directionv;
++    int nx = 0, ny = 0;
++    int i, x = 0, y = 0, maxx = 0;
++    
++    if (cent->x < imgs->width / 2) {
++        directionh = FOSCAM_DIRECTION_LEFT;
++        nx = imgs->width / 2 - cent->x;
++    }
++
++    if (cent->x > imgs->width / 2) {
++        directionh = FOSCAM_DIRECTION_RIGHT;
++        nx = cent->x - imgs->width / 2;
++    }
++
++    if (cent->y < imgs->height / 2) {
++        directionv = FOSCAM_DIRECTION_DOWN;
++        ny = imgs->height / 2 - cent->y;
++    }
++
++    if (cent->y > imgs->height / 2) {
++        directionv = FOSCAM_DIRECTION_UP;
++        ny = cent->y - imgs->height / 2;
++    }
++
++    nx = nx * 72 / imgs->width;
++    ny = ny * 72 / imgs->height;
++
++    if (nx) {
++        if (nx > 180)
++            nx = 180;
++    }
++
++    if (ny) {
++       if (ny > 45)
++           ny = 45;
++    }
++
++    maxx=ny;
++    if (nx>ny)
++       maxx=nx;
++
++    for (i=0;i<maxx;i++) {
++       x=y=i;
++       if (x < nx)
++          foscam_command(cnt, directionh, 0);
++       if (y < ny)
++          foscam_command(cnt, directionv, 0);
++    }
++    
++    
++    /* Number of frames to skip while moving */
++    if (ny >= nx)
++        i = 25 * ny / 90;
++    else
++        i = 25 * nx / 90;
++    return i;
++
++    return 0;
++}
++
++
++/******************************************************************************
++
+     Logitech QuickCam Orbit camera tracking code by folkert@vanheusden.com
+ 
+ ******************************************************************************/
+--- motion-3.2.12.orig/conf.c
++++ motion-3.2.12/conf.c
+@@ -973,7 +973,7 @@ config_param config_params[] = {
+     "\n############################################################\n"
+     "# Tracking (Pan/Tilt)\n"
+     "############################################################\n\n"
+-    "# Type of tracker (0=none (default), 1=stepper, 2=iomojo, 3=pwc, 4=generic, 5=uvcvideo)\n"
++    "# Type of tracker (0=none (default), 1=stepper, 2=iomojo, 3=pwc, 4=generic, 5=uvcvideo, 6=foscam)\n"
+     "# The generic type enables the definition of motion center and motion size to\n"
+     "# be used with the conversion specifiers for options like on_motion_detected",
+     0,
+--- motion-3.2.12.orig/track.h
++++ motion-3.2.12/track.h
+@@ -53,6 +53,7 @@ unsigned short int track_move(struct con
+ #define TRACK_TYPE_PWC          3
+ #define TRACK_TYPE_GENERIC      4
+ #define TRACK_TYPE_UVC          5
++#define TRACK_TYPE_FOSCAM       6
+ 
+ /*
+     Some defines for the Serial stepper motor:
+@@ -106,6 +107,19 @@ unsigned short int track_move(struct con
+ #define IOMOJO_DIRECTION_DOWN   0x04
+ #define IOMOJO_DIRECTION_UP     0x08
+ 
++
++/*
++    Some defines for the Foscam cam:
++ */
++
++#define FOSCAM_MOVEHOME         25
++
++#define FOSCAM_DIRECTION_RIGHT  6
++#define FOSCAM_DIRECTION_LEFT   4
++#define FOSCAM_DIRECTION_DOWN   2
++#define FOSCAM_DIRECTION_UP     0
++
++
+ #ifndef WITHOUT_V4L
+ 
+ /*

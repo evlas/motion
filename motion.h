@@ -40,7 +40,8 @@
 
 #define _LINUX_TIME_H 1
 #if !defined(WITHOUT_V4L) && !defined(BSD)
-#include <linux/videodev.h>
+#include <linux/videodev2.h>
+#include <libv4l1-videodev.h>
 #endif
 
 #include <pthread.h>

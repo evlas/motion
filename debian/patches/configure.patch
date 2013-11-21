@@ -1,0 +1,256 @@
+--- motion-3.2.12.orig/configure
++++ motion-3.2.12/configure
+@@ -668,6 +668,9 @@ with_mysql_include
+ with_pgsql
+ with_pgsql_lib
+ with_pgsql_include
++with_curl
++with_curl_lib
++with_curl_include
+ with_optimizecpu
+ with_developer_flags
+ '
+@@ -1338,6 +1341,18 @@ Optional Packages:
+                           this command to tell configure where pgsql include
+                           installation root directory is.
+ 
++  --without-curl         Disable cURL support in motion.
++
++  --with-curl-lib=DIR        Normally, configure will scan all possible default
++                          installation paths for cURL libs. When it fails, use
++                          this command to tell configure where cURL libs
++                          installation root directory is.
++
++  --with-curl-include=DIR    Normally, configure will scan all possible default
++                          installation paths for curl include. When it fails, use
++                          this command to tell configure where curl include
++                          installation root directory is.
++
+   --without-optimizecpu   Exclude autodetecting platform and cpu type.
+                           This will disable the compilation of gcc
+                           optimizing code by platform and cpu.
+@@ -3611,7 +3626,7 @@ $as_echo "found in /usr/lib" >&6; }
+ 		FFMPEG_DIR="/usr"
+ 	elif test -f /usr/lib/x86_64-linux-gnu/libavcodec.a -o -f /usr/lib/x86_64-linux-gnu/libavcodec.so && test -f /usr/lib/x86_64-linux-gnu/libavformat.a -o -f /usr/lib/x86_64-linux-gnu/libavformat.so ; then
+ 		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: found in /usr/lib/x86_64-linux-gnu" >&5
+-$as_echo "found in /usr/lib" >&6; }
++$as_echo "found in /usr/lib/x86_64-linux-gnu" >&6; }
+ 		FFMPEG_OK="found"
+ 		FFMPEG_LIB="/usr/lib/x86_64-linux-gnu"
+ 		FFMPEG_DIR="/usr"
+@@ -4159,6 +4174,201 @@ fi
+ # end PostgreSQL detection
+ fi
+ 
++#
++# Check cURL
++#
++CURL="yes"
++CURL_SUPPORT="no"
++CURL_HEADERS="yes"
++CURL_LIBS="yes"
++
++
++
++
++# Check whether --with-curl was given.
++if test "${with_curl+set}" = set; then :
++  withval=$with_curl; CURL="$withval"
++# if not given argument, assume standard
++
++fi
++
++
++
++# Check whether --with-curl-lib was given.
++if test "${with_curl_lib+set}" = set; then :
++  withval=$with_curl_lib; CURL_LIBS="$withval"
++# if not given argument, assume standard
++
++fi
++
++
++
++# Check whether --with-curl-include was given.
++if test "${with_curl_include+set}" = set; then :
++  withval=$with_curl_include; CURL_HEADERS="$withval"
++# if not given argument, assume standard
++
++fi
++
++
++{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for cURL" >&5
++$as_echo_n "checking for cURL... " >&6; }
++
++if test "${CURL}" = "no"; then
++	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: skipped" >&5
++$as_echo "skipped" >&6; }
++else
++	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: testing" >&5
++$as_echo "testing" >&6; }
++
++	# ******* Search curl headers *******
++	if test "${CURL_HEADERS}" = "yes"; then
++
++		{ $as_echo "$as_me:${as_lineno-$LINENO}: checking autodect curl headers" >&5
++$as_echo_n "checking autodect curl headers... " >&6; }
++		# Autodetect
++		for i in /usr /usr/local /usr/local/curl; do
++			if test -r $i/include/curl.h; then CURL_DIR=$i; CURL_INCDIR=$i/include
++			elif test -r $i/include/curl/curl.h; then CURL_DIR=$i; CURL_INCDIR=$i/include/curl
++			fi
++		done
++
++	elif test "${CURL_HEADERS}" = "no"; then
++		{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for curl headers" >&5
++$as_echo_n "checking for curl headers... " >&6; }
++		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: skipped" >&5
++$as_echo "skipped" >&6; }
++	else
++		{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for curl headers in $CURL_HEADERS" >&5
++$as_echo_n "checking for curl headers in $CURL_HEADERS... " >&6; }
++		# Manual detection for <withval>
++        	if test -f $CURL_HEADERS/curl.h; then
++                	CURL_INCDIR=$CURL_HEADERS
++	        fi
++	fi
++
++	if test -z "$CURL_INCDIR" ; then
++		CURL_HEADERS="no"
++		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: not found" >&5
++$as_echo "not found" >&6; }
++		echo "Invalid cURL directory - unable to find curl.h."
++	else
++		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes $CURL_INCDIR" >&5
++$as_echo "yes $CURL_INCDIR" >&6; }
++		CURL_HEADERS="yes"
++	fi
++
++
++	if test "${CURL_HEADERS}" = "yes"; then
++
++		# ******* Search curl libs *********
++		if test "${CURL_LIBS}" = "yes"; then
++			{ $as_echo "$as_me:${as_lineno-$LINENO}: checking autodect curl libs" >&5
++$as_echo_n "checking autodect curl libs... " >&6; }
++			# Autodetect
++			CURL_INCLUDE="-I$CURL_INCDIR"
++			CURL_LIBDIR=$CURL_DIR/lib
++
++			if test -f /usr/lib64/libcurl.so ; then
++				CURL_LIBDIR=/usr/lib64
++			elif test -f $CURL_DIR/lib/curl/libcurl.so ; then
++				CURL_LIBDIR=$CURL_DIR/lib/curl
++			elif test -f $CURL_DIR/lib/curl/libcurl.so ; then
++				CURL_LIBDIR=$CURL_DIR/lib/curl
++			elif test -f $CURL_DIR/lib/libcurl.so ; then
++				CURL_LIBDIR=$CURL_DIR/lib
++			elif test -f /usr/lib/x86_64-linux-gnu/libcurl.so ; then
++				CURL_LIBDIR=/usr/lib/x86_64-linux-gnu
++			else
++				CURL_LIBDIR=""
++			fi
++
++			{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $CURL_LIBDIR" >&5
++$as_echo "$CURL_LIBDIR" >&6; }
++
++		elif test "${CURL_LIBS}" = "no"; then
++	        	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for curl libs" >&5
++$as_echo_n "checking for curl libs... " >&6; }
++		        { $as_echo "$as_me:${as_lineno-$LINENO}: result: skipped" >&5
++$as_echo "skipped" >&6; }
++		else
++			{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for curl libs in $CURL_LIBS" >&5
++$as_echo_n "checking for curl libs in $CURL_LIBS... " >&6; }
++			# Manual detection for <withval>
++			if test -f $CURL_LIBS/libcurl.a -o -f $CURL_LIBS/libcurl.so; then
++				CURL_LIBDIR=$CURL_LIBS
++			fi
++		fi
++
++
++		if test -z "$CURL_LIBDIR" ; then
++			{ $as_echo "$as_me:${as_lineno-$LINENO}: result: not found" >&5
++$as_echo "not found" >&6; }
++			echo "Invalid cURL directory $CURL_LIBDIR - unable to find libcurl.a or libcurl.so."
++		else
++			#LDFLAGS="$TEMP_LDFLAGS -L$CURL_LIBDIR"
++			saved_CFLAGS=$CFLAGS
++			saved_LIBS=$LIBS
++			CFLAGS="-I$CURL_INCDIR"
++			LIBS="-L$CURL_LIBDIR"
++			{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for curl_version in -lcurl" >&5
++$as_echo_n "checking for curl_version in -lcurl... " >&6; }
++if ${ac_cv_lib_curl_curl_version+:} false; then :
++  $as_echo_n "(cached) " >&6
++else
++  ac_check_lib_save_LIBS=$LIBS
++LIBS="-lcurl  $LIBS"
++cat confdefs.h - <<_ACEOF >conftest.$ac_ext
++/* end confdefs.h.  */
++
++/* Override any GCC internal prototype to avoid an error.
++   Use char because int might match the return type of a GCC
++   builtin and then its argument prototype would still apply.  */
++#ifdef __cplusplus
++extern "C"
++#endif
++char curl_version ();
++int
++main ()
++{
++return curl_version ();
++  ;
++  return 0;
++}
++_ACEOF
++if ac_fn_c_try_link "$LINENO"; then :
++  ac_cv_lib_curl_curl_version=yes
++else
++  ac_cv_lib_curl_curl_version=no
++fi
++rm -f core conftest.err conftest.$ac_objext \
++    conftest$ac_exeext conftest.$ac_ext
++LIBS=$ac_check_lib_save_LIBS
++fi
++{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_curl_curl_version" >&5
++$as_echo "$ac_cv_lib_curl_curl_version" >&6; }
++if test "x$ac_cv_lib_curl_curl_version" = xyes; then :
++
++						CURL_SUPPORT="yes"
++						TEMP_LIBS="$TEMP_LIBS -L$CURL_LIBDIR -lcurl"
++						TEMP_CFLAGS="$TEMP_CFLAGS -I$CURL_INCDIR"
++
++$as_echo "#define HAVE_CURL 1" >>confdefs.h
++
++
++else
++  as_fn_error $? "cURL support can't build without cURL libraries" "$LINENO" 5
++fi
++
++			LDFLAGS=""
++			CFLAGS=$saved_CFLAGS
++			LIBS=$saved_LIBS
++		fi
++
++	fi # end curlinclude , curl-libs
++
++# end cURL detection
++fi
+ 
+ #Checks for header files.
+ ac_ext=c
+@@ -6618,6 +6828,13 @@ if test "${PGSQL_SUPPORT}" = "yes"; then
+ else
+ 	echo "PostgreSQL Support:  No"
+ fi
++
++if test "${CURL_SUPPORT}" = "yes"; then
++	echo "cURL Support:        Yes"
++else
++	echo "cURL Support:        No"
++fi
++
+ echo
+ 
+ echo "CFLAGS: $CFLAGS"

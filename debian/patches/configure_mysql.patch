@@ -1,0 +1,87 @@
+--- motion-3.2.12.orig/configure.in
++++ motion-3.2.12/configure.in
+@@ -316,14 +316,9 @@ if test "${FFMPEG_DIR}" = "no"; then
+ #
+ else if test "${FFMPEG_DIR}" = "yes"; then
+ 	# AUTODETECT STATIC/SHARED LIB 
+-	AC_MSG_CHECKING(for ffmpeg autodetecting libraries)
++	AC_MSG_CHECKING(for ffmpeg autodetecting)
+ 
+-	if test -f /usr/lib/$(dpkg-architecture -qDEB_BUILD_MULTIARCH)/libavcodec.so ; then
+-		AC_MSG_RESULT(found in /usr/lib/$(dpkg-architecture -qDEB_BUILD_MULTIARCH))
+-		FFMPEG_OK="found"
+-		FFMPEG_LIB="/usr/lib/$(dpkg-architecture -qDEB_BUILD_MULTIARCH)"
+-		FFMPEG_DIR="/usr"
+-	elif test -f /usr/lib64/libavcodec.a -o -f /usr/lib64/libavcodec.so && test -f /usr/lib64/libavformat.a -o -f /usr/lib64/libavformat.so ; then
++	if test -f /usr/lib64/libavcodec.a -o -f /usr/lib64/libavcodec.so && test -f /usr/lib64/libavformat.a -o -f /usr/lib64/libavformat.so ; then
+ 		AC_MSG_RESULT(found in /usr/lib64)
+ 		FFMPEG_OK="found"
+ 		FFMPEG_LIB="/usr/lib64"
+@@ -352,7 +347,7 @@ else if test "${FFMPEG_DIR}" = "yes"; th
+ 		echo ""		
+ 	fi 
+ else
+-	AC_MSG_CHECKING(for ffmpeg libraries in -> [${FFMPEG_DIR}] <-)
++	AC_MSG_CHECKING(for ffmpeg in -> [${FFMPEG_DIR}] <-)
+ 	if test -f ${FFMPEG_DIR}/lib/libavcodec.a -o -f ${FFMPEG_DIR}/lib/libavcodec.so && test -f ${FFMPEG_DIR}/lib/libavformat.a -o -f ${FFMPEG_DIR}/lib/libavformat.so ; then
+ 		AC_MSG_RESULT(found)
+ 		FFMPEG_OK="found"
+@@ -397,11 +392,9 @@ if test "${FFMPEG_OK}" = "found"; then
+ 	elif test -f ${FFMPEG_DIR}/include/libavformat/avformat.h; then
+ 		AC_MSG_RESULT(found ${FFMPEG_DIR}/include/libavformat/avformat.h)
+ 		FFMPEG_CFLAGS="-I${FFMPEG_DIR}/include -DFFMPEG_NEW_INCLUDES"
+-		AVFORMAT="-I${FFMPEG_DIR}/include/libavformat"
+     elif test -f ${FFMPEG_DIR}/include/ffmpeg/libavformat/avformat.h; then
+         AC_MSG_RESULT(found ${FFMPEG_DIR}/include/ffmpeg/libavformat/avformat.h)
+         FFMPEG_CFLAGS="-I${FFMPEG_DIR}/include/ffmpeg -DFFMPEG_NEW_INCLUDES" 
+-	AVFORMAT="-I${FFMPEG_DIR}/include/ffmpeg/libavformat"
+ 	else
+ 		AC_MSG_RESULT(not found)
+ 		FFMPEG_OK="no_found"
+@@ -430,11 +423,9 @@ if test "${FFMPEG_OK}" = "found"; then
+ 		AC_MSG_CHECKING([file_protocol is defined in ffmpeg ?])
+ 		saved_CFLAGS=$CFLAGS
+ 		saved_LIBS=$LIBS
+-
+-
+-		CFLAGS="${FFMPEG_CFLAGS} ${AVFORMAT}"
++		CFLAGS="${FFMPEG_CFLAGS}"
+ 		LIBS="$TEMP_LIBS"
+-    	
++		
+ 		AC_COMPILE_IFELSE(
+ 			[
+ 			#include <avformat.h>
+@@ -451,8 +442,7 @@ if test "${FFMPEG_OK}" = "found"; then
+ 			]
+ 		)
+ 		CFLAGS=$saved_CFLAGS
+-		LIBS=$saved_LIBS
+-       
++		LIBS=$saved_LIBS	
+ 	fi
+ fi	
+ fi
+@@ -551,7 +541,7 @@ else
+ 	if test "${MYSQL_LIBS}" = "yes"; then
+ 		AC_MSG_CHECKING(autodect mysql libs)
+         	# Autodetect
+-		for w in /usr/lib64 /usr/lib /usr/local/lib /usr/mysql /usr/local/mysql /usr/local/mysql/lib /opt /opt/mysql; do
++		for w in /usr/lib64 /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/lib /usr/mysql /usr/local/mysql /usr/local/mysql/lib /opt /opt/mysql; do
+ 			# check for plain setups
+ 			if test -f $w/libmysqlclient.a -o -f $w/libmysqlclient.so; then
+ 				MYSQL_LIBDIR=$w
+@@ -1077,13 +1067,6 @@ CFLAGS="${TEMP_CFLAGS} $UNAME_DEFS  $CPU
+ LIBS="${TEMP_LIBS}"
+ LDFLAGS="${TEMP_LDFLAGS}"
+ 
+-
+-AC_CHECK_FUNC(avformat_alloc_context, AC_DEFINE([have_avformat_alloc_context],1,[Define to 1 if you have avformat_alloc_context support]))
+-AC_CHECK_FUNC(av_avformat_alloc_context, AC_DEFINE([have_av_avformat_alloc_context],1,[Define to 1 if you have av_avformat_alloc_context support]))
+-AC_CHECK_FUNC(av_register_protocol2, AC_DEFINE([have_av_register_protocol2],1,[Define to 1 if you have av_register_protocol2 support]))
+-AC_CHECK_FUNC(av_register_protocol, AC_DEFINE([have_av_register_protocol],1,[Define to 1 if you have av_register_protocol support]))
+-
+-
+ #
+ # Add the right exec path for rc scripts
+ #

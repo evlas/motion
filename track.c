@@ -10,6 +10,8 @@
 #include <termios.h>
 #include "motion.h"
 
+#include <curl/curl.h>
+
 #ifndef WITHOUT_V4L
 #include "pwc-ioctl.h"
 #endif
@@ -37,6 +39,8 @@ static unsigned short int stepper_center(struct context *, int xoff, int yoff AT
 static unsigned short int stepper_move(struct context *, struct coord *, struct images *);
 static unsigned short int iomojo_center(struct context *, int xoff, int yoff);
 static unsigned short int iomojo_move(struct context *, int dev, struct coord *, struct images *);
+static unsigned short int foscam_center(struct context *, int xoff, int yoff);
+static unsigned short int foscam_move(struct context *, struct coord *, struct images *);
 #ifndef WITHOUT_V4L
 static unsigned short int lqos_center(struct context *, int dev, int xoff, int yoff);
 static unsigned short int lqos_move(struct context *, int dev, struct coord *, struct images *, 
@@ -77,6 +81,8 @@ unsigned short int track_center(struct context *cnt, int dev ATTRIBUTE_UNUSED,
         return iomojo_center(cnt, xoff, yoff);
     else if (cnt->track.type == TRACK_TYPE_GENERIC)
         return 10; // FIX ME. I chose to return something reasonable.
+    else if (cnt->track.type == TRACK_TYPE_FOSCAM)
+        return foscam_center(cnt, xoff, yoff);
 
     motion_log(LOG_ERR, 1, "track_center: internal error, %hu is not a known track-type", 
                cnt->track.type);
@@ -105,6 +111,8 @@ unsigned short int track_move(struct context *cnt, int dev, struct coord *cent,
         return iomojo_move(cnt, dev, cent, imgs);
     else if (cnt->track.type == TRACK_TYPE_GENERIC)
         return cnt->track.move_wait; // FIX ME. I chose to return something reasonable.
+    else if (cnt->track.type == TRACK_TYPE_FOSCAM)
+        return foscam_move(cnt, cent, imgs);
 
     motion_log(LOG_ERR, 1, "track_move: internal error, %hu is not a known track-type", 
                cnt->track.type);
@@ -434,6 +442,125 @@ static unsigned short int iomojo_move(struct context *cnt, int dev,
 
     return 0;
 }
+
+/******************************************************************************
+
+    FOSCAM
+
+******************************************************************************/
+
+static unsigned short int foscam_command(struct context *cnt, int command,
+                           unsigned short int ret)
+{
+    char buffer[1024];
+    const char *cptr;
+    CURL *curl;
+    CURLcode res;
+  
+    memset(buffer, 0, sizeof(buffer));
+  
+    curl = curl_easy_init();
+    if (curl) {
+       sprintf(buffer, "http://%s/decoder_control.cgi?command=%d&onestep=1", cnt->netcam->connect_host, command);
+       if (cnt->conf.netcam_userpass != NULL) {
+          if ((cptr = strchr(cnt->conf.netcam_userpass, ':')) != NULL) {
+             sprintf(buffer, "http://%s/decoder_control.cgi?command=%d&onestep=1&user=%.*s&pwd=%s", cnt->netcam->connect_host, command, cptr - cnt->conf.netcam_userpass, cnt->conf.netcam_userpass, cptr+1);    
+          } 
+       }
+              
+       curl_easy_setopt(curl, CURLOPT_URL, buffer);
+             
+       /* example.com is redirected, so we tell libcurl to follow redirection */
+       //curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+             
+       /* Perform the request, res will get the return code */
+       res = curl_easy_perform(curl);
+             
+       /* Check for errors */
+       if (res != CURLE_OK)
+          motion_log(LOG_ERR, 0, "curl_easy_perform() failed");
+             
+       curl_easy_strerror(res);
+             
+       /* always cleanup */
+       curl_easy_cleanup(curl);
+    }
+    return 0;
+}
+
+static void foscam_movehome(struct context *cnt)
+{
+    foscam_command(cnt, FOSCAM_MOVEHOME, 0);
+}
+
+static unsigned short int foscam_center(struct context *cnt, int x_offset, int y_offset)
+{
+    foscam_movehome(cnt);
+    return 0;
+}
+
+static unsigned short int foscam_move(struct context *cnt, struct coord *cent, struct images *imgs)
+{
+    int directionh, directionv;
+    int nx = 0, ny = 0;
+    int i, x = 0, y = 0, maxx = 0;
+    
+    if (cent->x < imgs->width / 2) {
+        directionh = FOSCAM_DIRECTION_LEFT;
+        nx = imgs->width / 2 - cent->x;
+    }
+
+    if (cent->x > imgs->width / 2) {
+        directionh = FOSCAM_DIRECTION_RIGHT;
+        nx = cent->x - imgs->width / 2;
+    }
+
+    if (cent->y < imgs->height / 2) {
+        directionv = FOSCAM_DIRECTION_DOWN;
+        ny = imgs->height / 2 - cent->y;
+    }
+
+    if (cent->y > imgs->height / 2) {
+        directionv = FOSCAM_DIRECTION_UP;
+        ny = cent->y - imgs->height / 2;
+    }
+
+    nx = nx * 72 / imgs->width;
+    ny = ny * 72 / imgs->height;
+
+    if (nx) {
+        if (nx > 180)
+            nx = 180;
+    }
+
+    if (ny) {
+       if (ny > 45)
+           ny = 45;
+    }
+
+    maxx=ny;
+    if (nx>ny)
+       maxx=nx;
+
+    for (i=0;i<maxx;i++) {
+       x=y=i;
+       if (x < nx)
+          foscam_command(cnt, directionh, 0);
+       if (y < ny)
+          foscam_command(cnt, directionv, 0);
+    }
+    
+    
+    /* Number of frames to skip while moving */
+    if (ny >= nx)
+        i = 25 * ny / 90;
+    else
+        i = 25 * nx / 90;
+    return i;
+
+    return 0;
+}
+
 
 /******************************************************************************
 

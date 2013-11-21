@@ -328,6 +328,11 @@ else if test "${FFMPEG_DIR}" = "yes"; then
 		FFMPEG_OK="found"
 		FFMPEG_LIB="/usr/lib"
 		FFMPEG_DIR="/usr"
+	elif test -f /usr/lib/x86_64-linux-gnu/libavcodec.a -o -f /usr/lib/x86_64-linux-gnu/libavcodec.so && test -f /usr/lib/x86_64-linux-gnu/libavformat.a -o -f /usr/lib/x86_64-linux-gnu/libavformat.so ; then
+		AC_MSG_RESULT(found in /usr/lib/x86_64-linux-gnu)
+		FFMPEG_OK="found"
+		FFMPEG_LIB="/usr/lib/x86_64-linux-gnu"
+		FFMPEG_DIR="/usr"
 	elif test -f /usr/local/lib/libavcodec.a -o -f /usr/local/lib/libavcodec.so && test -f /usr/local/lib/libavformat.a -o -f /usr/local/lib/libavformat.so ; then
 		AC_MSG_RESULT(found in /usr/local/lib)
 		FFMPEG_OK="found"
@@ -541,7 +546,7 @@ else
 	if test "${MYSQL_LIBS}" = "yes"; then
 		AC_MSG_CHECKING(autodect mysql libs)
         	# Autodetect
-		for w in /usr/lib64 /usr/lib /usr/local/lib /usr/mysql /usr/local/mysql /usr/local/mysql/lib /opt /opt/mysql; do
+		for w in /usr/lib64 /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/lib /usr/mysql /usr/local/mysql /usr/local/mysql/lib /opt /opt/mysql; do
 			# check for plain setups
 			if test -f $w/libmysqlclient.a -o -f $w/libmysqlclient.so; then
 				MYSQL_LIBDIR=$w
@@ -736,6 +741,144 @@ else
 # end PostgreSQL detection
 fi
 
+#
+# Check cURL
+#
+CURL="yes"
+CURL_SUPPORT="no"
+CURL_HEADERS="yes"
+CURL_LIBS="yes"
+
+AC_DEFUN(CURL_INC_CHK,[if test -r $i$1/curl.h; then CURL_DIR=$i; CURL_INCDIR=$i$1])
+
+AC_ARG_WITH(curl,
+[  --without-curl         Disable cURL support in motion.
+                          ],
+CURL="$withval"
+# if not given argument, assume standard
+)
+
+AC_ARG_WITH(curl-lib,
+[  --with-curl-lib[=DIR]        Normally, configure will scan all possible default
+                          installation paths for cURL libs. When it fails, use
+                          this command to tell configure where cURL libs
+                          installation root directory is.
+                          ],
+CURL_LIBS="$withval"
+# if not given argument, assume standard
+)
+
+AC_ARG_WITH(curl-include,
+[  --with-curl-include[=DIR]    Normally, configure will scan all possible default
+                          installation paths for curl include. When it fails, use
+                          this command to tell configure where curl include
+                          installation root directory is.
+                          ],
+CURL_HEADERS="$withval"
+# if not given argument, assume standard
+)
+
+AC_MSG_CHECKING(for cURL)
+
+if test "${CURL}" = "no"; then
+	AC_MSG_RESULT(skipped)
+else
+	AC_MSG_RESULT(testing)
+
+	# ******* Search curl headers *******
+	if test "${CURL_HEADERS}" = "yes"; then
+
+		AC_MSG_CHECKING(autodect curl headers)
+		# Autodetect
+		for i in /usr /usr/local /usr/local/curl; do
+			CURL_INC_CHK(/include)
+			el[]CURL_INC_CHK(/include/curl)
+			fi
+		done
+		
+	elif test "${CURL_HEADERS}" = "no"; then
+		AC_MSG_CHECKING(for curl headers)	
+		AC_MSG_RESULT(skipped)
+	else
+		AC_MSG_CHECKING(for curl headers in $CURL_HEADERS)
+		# Manual detection for <withval>
+        	if test -f $CURL_HEADERS/curl.h; then
+                	CURL_INCDIR=$CURL_HEADERS
+	        fi
+	fi
+
+	if test -z "$CURL_INCDIR" ; then
+		CURL_HEADERS="no"
+		AC_MSG_RESULT(not found)
+		echo "Invalid cURL directory - unable to find curl.h."
+	else
+		AC_MSG_RESULT(yes [$CURL_INCDIR])
+		CURL_HEADERS="yes"
+	fi
+
+
+	if test "${CURL_HEADERS}" = "yes"; then
+
+		# ******* Search curl libs *********
+		if test "${CURL_LIBS}" = "yes"; then
+			AC_MSG_CHECKING(autodect curl libs)
+			# Autodetect
+			CURL_INCLUDE="-I$CURL_INCDIR"
+			CURL_LIBDIR=$CURL_DIR/lib
+
+			if test -f /usr/lib64/libcurl.so ; then
+				CURL_LIBDIR=/usr/lib64
+			elif test -f $CURL_DIR/lib/curl/libcurl.so ; then
+				CURL_LIBDIR=$CURL_DIR/lib/curl 
+			elif test -f $CURL_DIR/lib/curl/libcurl.so ; then
+				CURL_LIBDIR=$CURL_DIR/lib/curl
+			elif test -f $CURL_DIR/lib/libcurl.so ; then	
+				CURL_LIBDIR=$CURL_DIR/lib
+			elif test -f /usr/lib/x86_64-linux-gnu/libcurl.so ; then	
+				CURL_LIBDIR=/usr/lib/x86_64-linux-gnu
+			else
+				CURL_LIBDIR=""
+			fi
+
+			AC_MSG_RESULT($CURL_LIBDIR)
+
+		elif test "${CURL_LIBS}" = "no"; then
+	        	AC_MSG_CHECKING(for curl libs)
+		        AC_MSG_RESULT(skipped)
+		else
+			AC_MSG_CHECKING(for curl libs in $CURL_LIBS)
+			# Manual detection for <withval>
+			if test -f $CURL_LIBS/libcurl.a -o -f $CURL_LIBS/libcurl.so; then
+				CURL_LIBDIR=$CURL_LIBS
+			fi
+		fi
+
+
+		if test -z "$CURL_LIBDIR" ; then
+			AC_MSG_RESULT(not found)
+			echo "Invalid cURL directory [$CURL_LIBDIR] - unable to find libcurl.a or libcurl.so."
+		else
+			#LDFLAGS="$TEMP_LDFLAGS -L$CURL_LIBDIR"
+			saved_CFLAGS=$CFLAGS
+			saved_LIBS=$LIBS
+			CFLAGS="-I$CURL_INCDIR"
+			LIBS="-L$CURL_LIBDIR"
+			AC_CHECK_LIB(curl, curl_version, [
+						CURL_SUPPORT="yes"
+						TEMP_LIBS="$TEMP_LIBS -L$CURL_LIBDIR -lcurl"
+						TEMP_CFLAGS="$TEMP_CFLAGS -I$CURL_INCDIR"
+						AC_DEFINE([HAVE_CURL],1,[Define to 1 if you have cURL support])
+					], 
+			AC_MSG_ERROR(cURL support can't build without cURL libraries))
+			LDFLAGS=""	
+			CFLAGS=$saved_CFLAGS
+			LIBS=$saved_LIBS
+		fi
+		
+	fi # end curlinclude , curl-libs
+
+# end cURL detection
+fi
 
 #Checks for header files.
 AC_HEADER_STDC
@@ -1183,6 +1326,13 @@ if test "${PGSQL_SUPPORT}" = "yes"; then
 else
 	echo "PostgreSQL Support:  No"
 fi
+
+if test "${CURL_SUPPORT}" = "yes"; then
+	echo "cURL Support:        Yes"
+else
+	echo "cURL Support:        No"
+fi
+
 echo 
 
 echo "CFLAGS: $CFLAGS"
